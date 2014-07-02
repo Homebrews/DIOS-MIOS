@@ -13,15 +13,28 @@ u8 HardDriveConnected;
 FATFS fatfs;
 
 static u8 *FSTable ALIGNED(32);
-u32 ApploaderSize=0;
-u32 dolOffset=0;
-u32 FSTableSize=0;
-u32 FSTableOffset=0;
 
-u32 FCEntry=0;
+u32 ApploaderSize	= 0;
+u32 dolOffset			= 0;
+u32 FSTableSize		= 0;
+u32 FSTableOffset	= 0;
+
+u32				FCEntry=0;
 FileCache FC[FILECACHE_MAX];
-u32 FCState[FILECACHE_MAX];
+u32				FCState[FILECACHE_MAX];
+DWORD			LTable[0x1D0];
 
+static void DVDCreateLinkMap( FIL *File )
+{		
+	GameFile.cltbl		= LTable;
+	GameFile.cltbl[0] = sizeof(LTable);
+
+	s32 fres = f_lseek( &GameFile, CREATE_LINKMAP );
+	if( fres == FR_NOT_ENOUGH_CORE )
+	{
+		GameFile.cltbl = NULL;
+	}
+}
 void DVDInit( void )
 {
 	int i=0;
@@ -134,6 +147,8 @@ s32 DVDSelectGame( void )
 			free(str);
 			return -3;
 		}
+
+		DVDCreateLinkMap(&GameFile);
 
 		f_lseek( &GameFile, 0 );
 		f_read( &GameFile, (void*)0, 0x20, &read );
@@ -311,9 +326,11 @@ void FSTRead( char *Buffer, u32 Length, u32 Offset )
 
 						f_open( &(FC[FCEntry].File), Path, FA_READ );
 
-						FC[FCEntry].Size	= fe[i].FileLength;
+						FC[FCEntry].Size		= fe[i].FileLength;
 						FC[FCEntry].Offset	= fe[i].FileOffset;
-						FCState[FCEntry]	= 0x23;
+						FCState[FCEntry]		= 0x23;
+
+						DVDCreateLinkMap(&(FC[FCEntry].File));
 
 						f_lseek( &(FC[FCEntry].File), nOffset );
 						f_read( &(FC[FCEntry].File), Buffer, Length, &read );
